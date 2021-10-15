@@ -136,9 +136,14 @@ object WebSocketFlowHandler {
               }
             }
 
-            override def onDownstreamFinish() = {
+            override def onDownstreamFinish(cause: Throwable): Unit = {
               if (state == Open) {
-                serverInitiatedClose(CloseMessage(Some(CloseCodes.Regular)))
+                cause match {
+                  case WebSocketCloseException(msg) =>
+                    serverInitiatedClose(msg)
+                  case _ =>
+                    serverInitiatedClose(CloseMessage(Some(CloseCodes.Regular)))
+                }
               }
             }
           }
