@@ -24,6 +24,7 @@ import play.api.libs.ws.WSClient
 import play.api.mvc.Handler
 import play.api.mvc.Results
 import play.api.mvc.WebSocket
+import play.api.mvc.WebSocket.MessageFlowTransformer
 import play.api.routing.HandlerDef
 import play.api.test._
 import play.it._
@@ -312,6 +313,25 @@ trait WebSocketSpec
               }
             })
           })
+        }
+      }
+
+      "close the websocket a WebSocketCloseException is thrown with the given code" in {
+        withServer(app =>
+          WebSocket.accept[String, String] { req =>
+            Flow.fromFunction(identity[String])
+          }(implicitly[MessageFlowTransformer[String, String]].map { _ =>
+            throw WebSocketCloseException(CloseMessage(statusCode = CloseCodes.Unacceptable, reason = "test"))
+          })
+        ) { app =>
+          import app.materializer
+          val frames = runWebSocket { flow =>
+            sendFrames(
+              TextMessage("first"),
+              CloseMessage(1000)
+            ).via(flow).runWith(consumeFrames)
+          }
+          frames mustEqual Seq(SimpleMessage(CloseMessage(CloseCodes.Unacceptable, "test"), true))
         }
       }
 
